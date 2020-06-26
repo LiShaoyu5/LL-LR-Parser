@@ -1,2 +1,33 @@
-# LL-LR-Parser
-A program with GUI for finding the First set, Follow set, LL analysis table and LR analysis table of grammars based on Python and PyQt5.
+编译原理课程的大作业，要求为实现一个带有图形界面的语法分析器，能够求First集、Follow集、LL分析表和LR分析表。
+
+项目地址：https://github.com/LiShaoyu5/LL-LR-Parser
+
+# 1. 环境要求
+
+开发环境：Python 3.7.7, PyQt5 5.13.0
+
+使用PyInstaller 3.6打包为可执行程序。
+
+# 2. 使用说明
+
+## 2.1 可执行程序
+
+由于单个文件25MB的大小限制，可执行程序没有上传到Github。在源码目录下，具有上节环境的命令行中执行命令：
+
+```
+pyinstaller -F -w MainWindow.py
+```
+
+生成可执行程序。
+
+## 2.2 输入说明
+
+一条规范的推导式示例：A->c|Bc|ε
+
+- 推出符号为->，空符号为ε，候选式分隔符为|。
+- 推导式中不应包含空格。
+- 每条推导式占一行。
+- 符号集（包括终结符和非终结符）中不应包含#、-、>、|、’、”、\、·，符号集只接受单个字符，如E’会被识别为E和’。
+- 同一非终结符可推出的候选式不应有重复。
+- 同一非终结符可推出的候选式应写在同一行。错误的写法： A->a A->b；正确的写法：A->a|b。
+- 此条不影响程序运行，但推荐使用大写字母表示非终结符、小写字母或数字表示终结符。
