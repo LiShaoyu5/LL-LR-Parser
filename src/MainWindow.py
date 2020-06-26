@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 
-import sys
 import os
+import sys
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtWidgets import QFileDialog, QTableWidgetItem, QMessageBox
+from PyQt5.QtWidgets import QFileDialog, QTableWidgetItem
 
 
 class State:
@@ -17,7 +17,7 @@ class State:
         self.idx = idx  # 状态集编号
         self.VN = []  # 非终结符集
         self.Symbol = []  # 符号集
-        self.EndNum = {}
+        self.EndNum = {}  # 文法中已推导至结束的式子数和式子总数
 
         if root:
             self.GetSymbol()
@@ -41,7 +41,7 @@ class State:
         # 所有符号
         for c in self.root:
             for r in c:
-                if r not in self.Symbol and r not in ['·',  '-', '>']:
+                if r not in self.Symbol and r not in ['·', '-', '>']:
                     self.Symbol.append(r)
 
     # 生成此状态集中的推导式
@@ -77,7 +77,7 @@ class State:
             pos = c.index('·')
             if pos != len(c) - 1:
                 # ·之后符号对应的next里加入这个式子
-                self.next[c[pos+1]].append(c)
+                self.next[c[pos + 1]].append(c)
 
 
 class Ui_MainWindow(object):
@@ -142,7 +142,7 @@ class Ui_MainWindow(object):
         # 自定义变量
         self.SymbolSet = []  # 符号集，保存每一个符号
         self.Derivation = {}  # 推导式集，以字典形式保存，key为str型左侧非终结符，value为list型右侧候选式
-        self.First = {}  # First集
+        self.First = {}  # First集，
         self.Follow = {}  # Follow集
         self.VT = []  # 终结符集
         self.VN = []  # 非终结符集
@@ -157,9 +157,8 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "MainWindow"))
-        self.InputArea.setPlaceholderText(_translate("MainWindow",
-                                                     "输入文法前请先确认符合同目录下操作手册.docx中的规范！"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "Analyzer"))
+        self.InputArea.setPlaceholderText(_translate("MainWindow", "输入文法前请先确认符合同目录下操作手册.docx中的规范！"))
         self.RunButton.setText(_translate("MainWindow", "分析"))
         self.ClearButton.setText(_translate("MainWindow", "清空"))
         self.HelpButton.setText(_translate("MainWindow", "帮助"))
@@ -209,19 +208,30 @@ class Ui_MainWindow(object):
                     self.VT.append(s)
 
             # 建立First集
-            for c in self.SymbolSet:
+            for c in self.SymbolSet:  # 初始化
                 self.First[c] = []
-            for c in self.SymbolSet:
+            for c in self.SymbolSet:  # 建立First集
                 self.FindFirst(c)
-            for key in self.First.keys():
+
+            for key in self.First.keys():  # 去重
                 self.First[key] = list(set(self.First[key]))
             # 设置文本显示，将self.First（字典）转换为字符串，添加换行，去掉空格和单引号
-            text = ''
+            text = '符号的First集：\n'
             for item in self.First.items():
                 # 去掉引号，将list的[]换成集合的{}
                 text += 'First(' + str(item[0]).replace('\'', '') + '): ' \
                         + str(item[1]).replace('\'', '').replace('[', '{').replace(']', '}') \
                         + '\n'
+            text += '\n候选式的First集：\n'
+            c_list = []
+            for value in self.Derivation.values():
+                for c in value:
+                    if c not in c_list and c != 'ε':
+                        c_list.append(c)
+            for c in c_list:
+                f = self.cFirst(c)
+                f = str(f).replace('\'', '').replace('[', '{').replace(']', '}') + '\n'
+                text += 'First(' + str(c).replace('\'', '') + '): ' + f
             self.FirstSet.setText(text)
 
             # 统计能推出ε的符号
@@ -231,7 +241,8 @@ class Ui_MainWindow(object):
             for c in self.VN:  # Follow集只考虑非终结符
                 self.Follow[c] = []
             self.FindFollow()
-            for key in self.Follow.keys():
+
+            for key in self.Follow.keys():  # 去重
                 self.Follow[key] = list(set(self.Follow[key]))
             # 设置文本显示，将self.Follow（字典）转换为字符串，添加换行，去掉空格和单引号
             text = ''
@@ -290,7 +301,7 @@ class Ui_MainWindow(object):
                             l = len(value[i])
                             # a->*b或a->*bc且c->ε，将Follow(a)加入Follow(b)
                             # value[i][j]是结尾字符
-                            if j == l-1:
+                            if j == l - 1:
                                 l_o = len(self.Follow[value[i][j]])  # 原本的长度
                                 self.Follow[value[i][j]].extend(self.Follow[key])  # 将Follow(key)加入Follow(value[i][j])
                                 self.Follow[value[i][j]] = list(set(self.Follow[value[i][j]]))  # 去重
@@ -298,9 +309,9 @@ class Ui_MainWindow(object):
                                     isChange = True
                             # a->*bc且c->ε，将Follow(a)加入Follow(b)
                             # value[i][j]是倒数第二个字符，且value[i][j+1]是非终结符
-                            elif (j == l-2) and (value[i][j+1] in self.VN):
+                            elif (j == l - 2) and (value[i][j + 1] in self.VN):
                                 l_o = len(self.Follow[value[i][j]])  # 原本的长度
-                                extend = self.First[value[i][j+1]]
+                                extend = self.First[value[i][j + 1]]
                                 if 'ε' in extend:
                                     extend.remove('ε')
                                 self.Follow[value[i][j]].extend(extend)  # 将First(value[i][j+1])加入Follow(value[i][j])
@@ -308,16 +319,17 @@ class Ui_MainWindow(object):
                                 if len(self.Follow[value[i][j]]) != l_o:  # 检查是否发生变化
                                     isChange = True
                                 # value[i][j+1]能推出ε
-                                if 'ε' in self.Derivation[value[i][j+1]]:
+                                if 'ε' in self.Derivation[value[i][j + 1]]:
                                     l_o = len(self.Follow[value[i][j]])  # 原本的长度
-                                    self.Follow[value[i][j]].extend(self.Follow[key])  # 将Follow(key)加入Follow(value[i][j])
+                                    self.Follow[value[i][j]].extend(
+                                        self.Follow[key])  # 将Follow(key)加入Follow(value[i][j])
                                     self.Follow[value[i][j]] = list(set(self.Follow[value[i][j]]))  # 去重
                                     if len(self.Follow[value[i][j]]) != l_o:  # 检查是否发生变化
                                         isChange = True
                             # a->*bc*，将First(c)-{ε}加入Follow(b)
                             else:
                                 l_o = len(self.Follow[value[i][j]])  # 原本的长度
-                                extend = self.First[value[i][j+1]]
+                                extend = self.First[value[i][j + 1]]
                                 if 'ε' in extend:
                                     extend.remove('ε')
                                 self.Follow[value[i][j]].extend(extend)  # 将First(value[i][j+1])加入Follow(value[i][j])
@@ -343,7 +355,7 @@ class Ui_MainWindow(object):
 
             for c in value:
                 # 存在左递归则不是LL(1)文法
-                if key == value[0]:
+                if key == c[0]:
                     return False
 
                 # 候选式按能否推出ε分类
@@ -367,7 +379,7 @@ class Ui_MainWindow(object):
                                 else:
                                     return False
 
-            # 对能推出ε的候选式，First(候选式)与Follow(c)交集为空
+            # 对能推出ε的候选式，First(候选式)与Follow(key)交集为空
             for i in c_e:
                 i_first = set(self.cFirst(i))
                 key_first = set(self.Follow[key])
@@ -384,7 +396,7 @@ class Ui_MainWindow(object):
 
             # 表头部分
             self.AnalyticalTable.setItem(0, 0, QTableWidgetItem('LL Parser'))
-            self.AnalyticalTable.setSpan(0, 0, 1, len(self.VT)+1)
+            self.AnalyticalTable.setSpan(0, 0, 1, len(self.VT) + 1)
 
             column = 1
             for i in self.VT:
@@ -403,9 +415,12 @@ class Ui_MainWindow(object):
                     c_first = self.cFirst(c)
                     for a in c_first:
                         if a != 'ε':
-                            x = self.VN.index(key)+2
+                            x = self.VN.index(key) + 2
                             y = self.VT.index(a)
-                            if y < self.VT.index('ε'):
+                            if 'ε' in self.VT:
+                                if y < self.VT.index('ε'):
+                                    y += 1
+                            else:
                                 y += 1
                             content = QTableWidgetItem(key + '->' + c)
                             self.AnalyticalTable.setItem(x, y, content)
@@ -429,7 +444,7 @@ class Ui_MainWindow(object):
         # 每个结果不是ε的推导式，在候选式前加·，放进root
         for key, value in self.Derivation.items():
             for c in value:
-                root.append(key+'->·'+c)
+                root.append(key + '->·' + c)
         idx = 0
         I0 = State(root, [], True, None, idx)
         idx += 1
@@ -470,18 +485,18 @@ class Ui_MainWindow(object):
         # 表头部分
         row = len(self.VN) + 6
         column = 1
-        self.AnalyticalTable.setItem(row-3, 0, QTableWidgetItem('LR Parser'))
-        self.AnalyticalTable.setSpan(row-3, 0, 1, len(self.VT)+len(self.VN)+1)
-        self.AnalyticalTable.setItem(row-2, 1, QTableWidgetItem('Action'))
-        self.AnalyticalTable.setSpan(row-2, 1, 1, len(self.VT))
-        self.AnalyticalTable.setItem(row-2, len(self.VT)+1, QTableWidgetItem('Goto'))
-        self.AnalyticalTable.setSpan(row - 2, len(self.VT)+1, 1, len(self.VN))
+        self.AnalyticalTable.setItem(row - 3, 0, QTableWidgetItem('LR Parser'))
+        self.AnalyticalTable.setSpan(row - 3, 0, 1, len(self.VT) + len(self.VN) + 1)
+        self.AnalyticalTable.setItem(row - 2, 1, QTableWidgetItem('Action'))
+        self.AnalyticalTable.setSpan(row - 2, 1, 1, len(self.VT))
+        self.AnalyticalTable.setItem(row - 2, len(self.VT) + 1, QTableWidgetItem('Goto'))
+        self.AnalyticalTable.setSpan(row - 2, len(self.VT) + 1, 1, len(self.VN))
         for i in self.VT:
             if i != 'ε':
-                self.AnalyticalTable.setItem(row-1, column, QTableWidgetItem(i))
+                self.AnalyticalTable.setItem(row - 1, column, QTableWidgetItem(i))
                 column += 1
         for i in self.VN:
-            self.AnalyticalTable.setItem(row-1, column, QTableWidgetItem(i))
+            self.AnalyticalTable.setItem(row - 1, column+1, QTableWidgetItem(i))
             column += 1
         for i in range(len(I)):
             self.AnalyticalTable.setItem(row, 0, QTableWidgetItem(str(i)))
@@ -493,8 +508,8 @@ class Ui_MainWindow(object):
         # key∈VT, key = self.VT.index(key)+1
         # key∈VN, key = self.VN.index(key)+1+len(self.VT)
         # 遍历I：
-            # 若其中只有一个推导式且·在末尾，则全填rx
-            # 若有多个推导式，一部位·在末尾，则这几个式子对应的格子填rx，key为从这个式子到终结态的key
+        # 若其中只有一个推导式且·在末尾，则全填rx
+        # 若有多个推导式，一部位·在末尾，则这几个式子对应的格子填rx，key为从这个式子到终结态的key
 
         isLR = True
         # sb/b
@@ -546,13 +561,18 @@ class Ui_MainWindow(object):
                             isLR = False
                         else:
                             self.AnalyticalTable.setItem(x, y, QTableWidgetItem(source))
-        self.AnalyticalTable.setItem(len(self.VN)+6+1, self.VT.index('#')+1, QTableWidgetItem('acc'))
+        self.AnalyticalTable.setItem(len(self.VN) + 6 + 1, self.VT.index('#') + 1, QTableWidgetItem('acc'))
+
+        for key, value in self.Derivation.items():
+            for c in value:
+                # 存在左递归则不是LR文法
+                if key == c[0]:
+                    isLR = False
         if not isLR:
             for x in range(len(self.VN) + 6, len(self.VN) + 7 + len(I)):
                 for y in range(1, len(self.VT) + len(self.VN) + 1):
                     self.AnalyticalTable.setItem(x, y, QTableWidgetItem(''))
             self.AnalyticalTable.setItem(len(self.VN) + 3, 0, QTableWidgetItem('This is not a LR grammer.'))
-
 
     # 判断候选式是否能推导出ε
     def isE(self, c):
@@ -617,6 +637,7 @@ class Ui_MainWindow(object):
     # 帮助
     def Help(self):
         os.startfile('操作手册.docx')
+
 
 if __name__ == '__main__':
     app = QtWidgets.QApplication(sys.argv)
