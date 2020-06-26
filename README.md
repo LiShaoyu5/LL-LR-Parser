@@ -2,6 +2,8 @@
 
 项目地址：https://github.com/LiShaoyu5/LL-LR-Parser
 
+测试不多，还有很多问题待修改。
+
 # 1. 环境要求
 
 开发环境：Python 3.7.7, PyQt5 5.13.0
